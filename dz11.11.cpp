@@ -3,225 +3,141 @@
 #include <cstdlib>
 #include <cerrno>
 #include <climits>
+#include <new>
 #include <windows.h>
-
 using namespace std;
 
-// Узел списка
-struct Node {
-    int data;
-    Node* next;
+// Стек
+int* stackArr;
+int stackTop = 0;
+int stackSize;
 
-    Node(int value) {
-        data = value;
-        next = nullptr;
-    }
-};
+// Очередь
+int* queueArr;
+int queueStart = 0;
+int queueEnd = 0;
+int queueSize;
 
+// Добавление в стек
+bool stackPush(int value) {
+    if (stackTop >= stackSize) return false;
 
-class Stack {
-private:
-    Node* topNode;
+    stackArr[stackTop] = value;
+    stackTop++;
+    return true;
+}
 
-public:
-    Stack() {
-        topNode = nullptr;
-    }
+// Удаление из стека
+bool stackPop(int& value) {
+    if (stackTop == 0) return false;
 
-    ~Stack() {
-        while (topNode != nullptr) {
-            pop();
-        }
-    }
+    stackTop--;
+    value = stackArr[stackTop];
+    return true;
+}
 
-    // Добавление элемента
-    bool push(int value) {
-        Node* node = new(nothrow) Node(value);
+// Чтение верхнего элемента
+bool stackPeek(int& value) {
+    if (stackTop == 0) return false;
 
-        if (node == nullptr) {
-            return false;
-        }
+    value = stackArr[stackTop - 1];
+    return true;
+}
 
-        node->next = topNode;
-        topNode = node;
+// Добавление в очередь
+bool queuePush(int value) {
+    if (queueEnd >= queueSize) return false;
 
-        return true;
-    }
+    queueArr[queueEnd] = value;
+    queueEnd++;
+    return true;
+}
 
-    // Удаление верхнего элемента
-    bool pop() {
-        if (topNode == nullptr) {
-            return false;
-        }
+// Удаление из очереди
+bool queuePop(int& value) {
+    if (queueStart >= queueEnd) return false;
 
-        Node* temp = topNode;
-        topNode = topNode->next;
+    value = queueArr[queueStart];
+    queueStart++;
+    return true;
+}
 
-        delete temp;
+// Чтение первого элемента
+bool queuePeek(int& value) {
+    if (queueStart >= queueEnd) return false;
 
-        return true;
-    }
-
-    // Чтение верхнего элемента без удаления
-    bool peek(int& value) const {
-        if (topNode == nullptr) {
-            return false;
-        }
-
-        value = topNode->data;
-        return true;
-    }
-
-    bool empty() const {
-        return topNode == nullptr;
-    }
-};
-
-
-
-class Queue {
-private:
-    Node* first;
-    Node* last;
-
-public:
-    Queue() {
-        first = nullptr;
-        last = nullptr;
-    }
-
-    ~Queue() {
-        while (first != nullptr) {
-            pop();
-        }
-    }
-
-    // Добавление элемента в конец
-    bool push(int value) {
-        Node* node = new(nothrow) Node(value);
-
-        if (node == nullptr) {
-            return false;
-        }
-
-        if (last == nullptr) {
-            first = last = node;
-        } else {
-            last->next = node;
-            last = node;
-        }
-
-        return true;
-    }
-
-    // Удаление первого элемента
-    bool pop() {
-        if (first == nullptr) {
-            return false;
-        }
-
-        Node* temp = first;
-        first = first->next;
-
-        if (first == nullptr) {
-            last = nullptr;
-        }
-
-        delete temp;
-
-        return true;
-    }
-
-    // Чтение первого элемента без удаления
-    bool peek(int& value) const {
-        if (first == nullptr) {
-            return false;
-        }
-
-        value = first->data;
-        return true;
-    }
-
-    bool empty() const {
-        return first == nullptr;
-    }
-};
-
-
+    value = queueArr[queueStart];
+    return true;
+}
 
 int main(int argc, char* argv[]) {
-
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 
-    if (argc < 2) {
-        cerr << "Ошибка: необходимо передать целые числа "
-                "через командную строку." << endl;
+    if (argc == 1) {
+        cout << "Ошибка: числа не переданы." << endl;
         return 1;
     }
 
-    Stack stack;
-    Queue queue;
+    int count = argc - 1;
 
-    // Получаем числа из аргументов командной строки
+    stackSize = count;
+    queueSize = count;
+
+    // Выделение динамической памяти
+    stackArr = new (nothrow) int[stackSize];
+    queueArr = new (nothrow) int[queueSize];
+
+    if (stackArr == nullptr || queueArr == nullptr) {
+        cout << "Ошибка выделения памяти." << endl;
+        delete[] stackArr;
+        delete[] queueArr;
+        return 1;
+    }
+
+    // Получение и проверка чисел
     for (int i = 1; i < argc; i++) {
         char* end;
         errno = 0;
+        long number = strtol(argv[i], &end, 10);
 
-        long value = strtol(argv[i], &end, 10);
-
-        if (errno == ERANGE ||
-            end == argv[i] ||
-            *end != '\0' ||
-            value < INT_MIN ||
-            value > INT_MAX) {
-
-            cerr << "Ошибка: некорректное число: "
-                 << argv[i] << endl;
-
-            return 2;
+        if (errno == ERANGE || end == argv[i] ||
+            *end != '\0' || number < INT_MIN || number > INT_MAX) {
+            cout << "Ошибка: неверное целое число: " << argv[i] << endl;
+            delete[] stackArr;
+            delete[] queueArr;
+            return 1;
         }
 
-        if (!stack.push(static_cast<int>(value))) {
-            cerr << "Ошибка выделения памяти для стека." << endl;
-            return 3;
-        }
-
-        if (!queue.push(static_cast<int>(value))) {
-            cerr << "Ошибка выделения памяти для очереди." << endl;
-            return 3;
+        if (!stackPush((int)number) || !queuePush((int)number)) {
+            cout << "Ошибка добавления элемента." << endl;
+            delete[] stackArr;
+            delete[] queueArr;
+            return 1;
         }
     }
 
-    // Вывод в прямом порядке
-    cout << "Прямой порядок (очередь): ";
+    int value;
 
-    while (!queue.empty()) {
-        int value;
+    cout << "Прямой порядок: ";
 
-        if (queue.peek(value)) {
-            cout << value << " ";
-            queue.pop();
-        }
+    while (queuePop(value)) {
+        cout << value << " ";
     }
 
     cout << endl;
 
-    // Вывод в обратном порядке
-    cout << "Обратный порядок (стек): ";
+    cout << "Обратный порядок: ";
 
-    while (!stack.empty()) {
-        int value;
-
-        if (stack.peek(value)) {
-            cout << value << " ";
-            stack.pop();
-        }
+    while (stackPop(value)) {
+        cout << value << " ";
     }
 
     cout << endl;
+
+    // Освобождение памяти
+    delete[] stackArr;
+    delete[] queueArr;
 
     return 0;
 }
-
-// Второй коммит
